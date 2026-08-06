@@ -15,12 +15,10 @@ def home():
 
 
 def run_flask():
-  # Render taqdim etadigan portni avtomatik oladi
   port = int(os.environ.get('PORT', 8080))
   app.run(host='0.0.0.0', port=port)
 
 
-# Flask serverini orqa fonda alohida oqimda ishga tushirish
 Thread(target=run_flask, daemon=True).start()
 
 
@@ -42,8 +40,6 @@ def init_db():
             user_id INTEGER,
             category TEXT,
             title TEXT,
-            region TEXT,
-            price INTEGER,
             phone TEXT,
             photo_id TEXT
         )
@@ -100,16 +96,19 @@ def process_category(message):
 
   if category == '📱 Telefonlar':
     prompt_text = (
-        'Model va xotirasini kiriting (Masalan: iPhone 13 Pro 128GB, karobka-dok'
-        ' bor):'
+        'Model, narxi, hududi va xotirasini kiriting\n(Masalan: iPhone 13 Pro'
+        ' 128GB, Toshkent, $600, karobka-dok bor):'
     )
   elif category == '🚗 Avtomobil':
     prompt_text = (
-        'Model va yilini kiriting (Masalan: Cobalt 2022 2-pozitsiya, kraska'
-        ' toza):'
+        'Model, yili, hududi va narxini kiriting\n(Masalan: Cobalt 2022'
+        ' 2-pozitsiya, Samarqand, $11000, kraska toza):'
     )
   else:
-    prompt_text = 'Sarlavha/Tavsifni kiriting (Masalan: 2 xonali uy yevroremont):'
+    prompt_text = (
+        'Tavsif, hudud va narxini kiriting\n(Masalan: 2 xonali uy yevroremont,'
+        ' Toshkent Chilonzor, $45000):'
+    )
 
   msg = bot.send_message(chat_id, prompt_text, reply_markup=markup)
   bot.register_next_step_handler(msg, process_title)
@@ -118,31 +117,6 @@ def process_category(message):
 def process_title(message):
   chat_id = message.chat.id
   user_data[chat_id]['title'] = message.text
-
-  msg = bot.send_message(
-      chat_id, 'Qaysi shahar/viloyatda? (Masalan: Toshkent):'
-  )
-  bot.register_next_step_handler(msg, process_region)
-
-
-def process_region(message):
-  chat_id = message.chat.id
-  user_data[chat_id]['region'] = message.text
-
-  msg = bot.send_message(chat_id, 'Narxini kiriting (faqat raqamda, USD):')
-  bot.register_next_step_handler(msg, process_price)
-
-
-def process_price(message):
-  chat_id = message.chat.id
-  if not message.text.isdigit():
-    msg = bot.send_message(
-        chat_id, 'Iltimos, narxni faqat raqamlarda kiriting:'
-    )
-    bot.register_next_step_handler(msg, process_price)
-    return
-
-  user_data[chat_id]['price'] = int(message.text)
 
   msg = bot.send_message(
       chat_id, "Bog'lanish uchun telefon raqamingizni kiriting:"
@@ -175,9 +149,7 @@ def process_photo(message):
       f"🆕 **YANGI MODERATSIYA E'LONI**\n\n"
       f'👤 **Foydalanuvchi ID:** `{chat_id}`\n'
       f"📁 **Kategoriya:** {data['category']}\n"
-      f"📝 **Tavsif:** {data['title']}\n"
-      f"📍 **Hudud:** {data['region']}\n"
-      f"💰 **Narxi:** ${data['price']}\n"
+      f"📝 **Tavsif va Narxi:** {data['title']}\n"
       f"📞 **Aloqa:** {data['phone']}"
   )
 
@@ -233,18 +205,10 @@ def handle_moderation(call):
     cursor = conn.cursor()
     cursor.execute(
         '''
-            INSERT INTO ads (user_id, category, title, region, price, phone, photo_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ads (user_id, category, title, phone, photo_id)
+            VALUES (?, ?, ?, ?, ?)
         ''',
-        (
-            owner_id,
-            data['category'],
-            data['title'],
-            data['region'],
-            data['price'],
-            data['phone'],
-            data['photo_id'],
-        ),
+        (owner_id, data['category'], data['title'], data['phone'], data['photo_id']),
     )
     conn.commit()
     conn.close()
@@ -252,8 +216,6 @@ def handle_moderation(call):
     channel_text = (
         f"📢 **YANGI E'LON ({data['category'].upper()})**\n\n"
         f"📝 **Tavsif:** {data['title']}\n"
-        f"📍 **Hudud:** {data['region']}\n"
-        f"💰 **Narxi:** ${data['price']}\n"
         f"📞 **Aloqa:** {data['phone']}\n\n"
         f'🤖 *Bot orqali joylandi*'
     )
@@ -308,50 +270,27 @@ def process_search_category(message):
   markup = types.ReplyKeyboardRemove()
   msg = bot.send_message(
       chat_id,
-      "Qaysi hududdan qidiryapsiz? (Masalan: Toshkent yoki 'Hammasi'):",
+      "Qidirayotgan mahsulotingiz nomi yoki hudud bo'yicha kalit so'z kiriting"
+      " (Masalan: Cobalt, Toshkent yoki 'Hammasi'):",
       reply_markup=markup,
   )
-  bot.register_next_step_handler(msg, process_search_region)
+  bot.register_next_step_handler(msg, process_search_keyword)
 
 
-def process_search_region(message):
+def process_search_keyword(message):
   chat_id = message.chat.id
-  search_filters[chat_id]['region'] = message.text
-
-  msg = bot.send_message(
-      chat_id,
-      "Maksimal narxni kiriting (USD, masalan: 500 yoki cheklovsiz bo'lsa '0'):",
-  )
-  bot.register_next_step_handler(msg, process_search_max_price)
-
-
-def process_search_max_price(message):
-  chat_id = message.chat.id
-  if not message.text.isdigit():
-    msg = bot.send_message(
-        chat_id, 'Iltimos, narxni faqat raqamda kiriting:'
-    )
-    bot.register_next_step_handler(msg, process_search_max_price)
-    return
-
-  max_price = int(message.text)
-  search_filters[chat_id]['max_price'] = max_price
-  filters = search_filters[chat_id]
+  keyword = message.text.strip()
+  category = search_filters[chat_id]['category']
 
   conn = sqlite3.connect('database.db')
   cursor = conn.cursor()
 
-  query = 'SELECT title, region, price, phone, photo_id FROM ads WHERE category'
-  ' = ?'
-  params = [filters['category']]
+  query = 'SELECT title, phone, photo_id FROM ads WHERE category = ?'
+  params = [category]
 
-  if filters['region'].lower() != 'hammasi':
-    query += ' AND LOWER(region) LIKE ?'
-    params.append(f"%{filters['region'].lower()}%")
-
-  if filters['max_price'] > 0:
-    query += ' AND price <= ?'
-    params.append(filters['max_price'])
+  if keyword.lower() != 'hammasi':
+    query += ' AND LOWER(title) LIKE ?'
+    params.append(f'%{keyword.lower()}%')
 
   query += ' ORDER BY id DESC LIMIT 10'
 
@@ -362,7 +301,7 @@ def process_search_max_price(message):
   if not results:
     bot.send_message(
         chat_id,
-        "🔍 Afsuski, kiritilgan filtrlar bo'yicha e'lon topilmadi.",
+        "🔍 Afsuski, kiritilgan so'rov bo'yicha e'lon topilmadi.",
     )
     start(message)
     return
@@ -373,11 +312,8 @@ def process_search_max_price(message):
       parse_mode='Markdown',
   )
   for item in results:
-    caption = (
-        f'📌 **{item[0]}**\n📍 Hudud: {item[1]}\n💰 Narxi: ${item[2]}\n📞 Tel:'
-        f' {item[3]}'
-    )
-    bot.send_photo(chat_id, item[4], caption=caption, parse_mode='Markdown')
+    caption = f'📌 **Tavsif:** {item[0]}\n📞 **Tel:** {item[1]}'
+    bot.send_photo(chat_id, item[2], caption=caption, parse_mode='Markdown')
 
   start(message)
 
@@ -391,5 +327,4 @@ if __name__ == '__main__':
   except Exception as e:
     print(f'Webhook tozalashda ogohlantirish: {e}')
 
-  # Render serverida to'g'ri ishlashi uchun to'g'rilangan ishga tushirish
   bot.infinity_polling(skip_pending=True)
