@@ -5,29 +5,29 @@ from flask import Flask
 import telebot
 from telebot import types
 
-# --- 0. RENDER UCHUN FLASK SERVERNIX ALOHIDA OQIMDA ISHGA TUSHIRISH ---
+# --- 0. RENDER UCHUN FLASK VEB-SERVERI ---
 app = Flask(__name__)
 
 
 @app.route('/')
 def home():
-  return 'Bot 24/7 uzluksiz ishlamoqda!'
+  return 'Bot Render serverida 24/7 uzluksiz ishlamoqda!'
 
 
 def run_flask():
-  # Render taqdim etgan PORT muhit o'zgaruvchisini olamiz (odatiy 8080)
+  # Render taqdim etadigan portni avtomatik oladi
   port = int(os.environ.get('PORT', 8080))
   app.run(host='0.0.0.0', port=port)
 
 
-# Web-serverni orqa fonda (Thread) yurgizamiz
+# Flask serverini orqa fonda alohida oqimda ishga tushirish
 Thread(target=run_flask, daemon=True).start()
 
 
 # --- SOZLAMALAR ---
-TOKEN = '8934681392:AAE-yJP_Qrn7CF2MYtqzWagSDOLyVQp95Oo'  # BotFather'dan olingan token
-CHANNEL_ID = '@elon_savdosi'  # Kanalingiz username'i
-ADMIN_ID = 8004582786  # Telegram ID raqamingiz
+TOKEN = '8934681392:AAE-yJP_Qrn7CF2MYtqzWagSDOLyVQp95Oo'  # BotToken
+CHANNEL_ID = '@elon_savdosi'  # Telegram kanal username
+ADMIN_ID = 8004582786  # Telegram Admin ID
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -72,7 +72,6 @@ def start(message):
   )
 
 
-# Kategoriya tanlash menyusi
 def get_categories_keyboard():
   markup = types.ReplyKeyboardMarkup(
       resize_keyboard=True, one_time_keyboard=True
@@ -99,7 +98,6 @@ def process_category(message):
 
   markup = types.ReplyKeyboardRemove()
 
-  # Kategoriya bo'yicha maxsus ko'rsatib o'tish
   if category == '📱 Telefonlar':
     prompt_text = (
         'Model va xotirasini kiriting (Masalan: iPhone 13 Pro 128GB, karobka-dok'
@@ -386,13 +384,12 @@ def process_search_max_price(message):
 
 # --- BOTNI ISHGA TUSHIRISH ---
 if __name__ == '__main__':
-  print('Bot va Flask serveri Render uchun tayyorlanmoqda...')
+  print('Bot va Flask serveri ishga tushmoqda...')
 
-  # 409 Conflict xatosini oldini olish uchun avvalgi seans/webhookni tozalaymiz
   try:
     bot.remove_webhook()
   except Exception as e:
     print(f'Webhook tozalashda ogohlantirish: {e}')
 
-  # Botni cheksiz tsiklda ishga tushirish
-  bot.infinity_polling(skip_pending_callbacks=True)
+  # Render serverida to'g'ri ishlashi uchun to'g'rilangan ishga tushirish
+  bot.infinity_polling(skip_pending=True)
