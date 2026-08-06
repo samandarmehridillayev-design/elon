@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from threading import Thread
 from flask import Flask
 import telebot
@@ -15,6 +16,10 @@ def home():
 
 
 def run_flask():
+  import logging
+
+  log = logging.getLogger('werkzeug')
+  log.setLevel(logging.ERROR)  # Ortiqcha HTTP loglarini yashiradi
   port = int(os.environ.get('PORT', 8080))
   app.run(host='0.0.0.0', port=port)
 
@@ -324,7 +329,16 @@ if __name__ == '__main__':
 
   try:
     bot.remove_webhook()
+    print("Eski webhook'lar tozalandi.")
   except Exception as e:
     print(f'Webhook tozalashda ogohlantirish: {e}')
 
-  bot.infinity_polling(skip_pending=True)
+  # Render serverida parallel ulanishlar to'qnashuvini oldini olish
+  time.sleep(3)
+
+  while True:
+    try:
+      bot.polling(none_stop=True, interval=1, timeout=30)
+    except Exception as e:
+      print(f"Ulanish xatosi (qayta ulanmoqda...): {e}")
+      time.sleep(5)
